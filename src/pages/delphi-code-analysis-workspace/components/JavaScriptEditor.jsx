@@ -10,6 +10,9 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
   const [isFullscreen, setIsFullscreen] = useState(false);
   const textareaRef = useRef(null);
   const [selectedSnippetId, setSelectedSnippetId] = useState('');
+  const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [promptText, setPromptText] = useState('');
+  const defaultPrompt = 'You are a code refactoring assistant. Transform the following JavaScript according to the instructions. Output only executable JavaScript.\n\nInstructions:\n{{instructions}}\n\nCurrent code:\n{{code}}\n\nConstraints:\n- Return a function(fileContent, diffItems, metadata) or a pipeline-style array.';
 
   const defaultCode = getProcedureFunctionCode;
 
@@ -21,6 +24,21 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
       onCodeChange(defaultCode);
     }
   }, [code, defaultCode]);
+
+  const openPromptEditor = () => {
+    const stored = localStorage.getItem('aiRefactorPromptTemplate');
+    setPromptText(stored || defaultPrompt);
+    setIsPromptOpen(true);
+  };
+
+  const savePromptEditor = () => {
+    localStorage.setItem('aiRefactorPromptTemplate', promptText || defaultPrompt);
+    setIsPromptOpen(false);
+  };
+
+  const resetPromptEditor = () => {
+    setPromptText(defaultPrompt);
+  };
 
   const handleCodeChange = (e) => {
     const newCode = e?.target?.value;
@@ -129,6 +147,16 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
           >
             Reset
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="Settings"
+            onClick={openPromptEditor}
+            disabled={isProcessing}
+            className="text-xs"
+          >
+            Edit AI Prompt
+          </Button>
         </div>
       </div>
       <div className="bg-card border border-border rounded-lg p-3">
@@ -160,6 +188,33 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
           </div>
         )}
       </div>
+
+      {isPromptOpen && (
+        <div className="fixed inset-0 z-70 bg-black/30 flex items-center justify-center">
+          <div className="bg-popover border border-border rounded-lg w-[640px] max-w-[95vw]">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Icon name="Settings" size={16} />
+                <span className="text-sm font-medium text-text-primary">AI Refactor Prompt</span>
+              </div>
+              <Button variant="ghost" size="sm" iconName="X" onClick={() => setIsPromptOpen(false)} />
+            </div>
+            <div className="p-4 space-y-3">
+              <textarea
+                value={promptText}
+                onChange={(e) => setPromptText(e?.target?.value)}
+                className="w-full h-48 p-3 border border-border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                placeholder="Enter prompt template using {{instructions}} and {{code}} placeholders"
+              />
+              <div className="text-xs text-text-secondary">Placeholders: {'{{instructions}}'}, {'{{code}}'}</div>
+            </div>
+            <div className="px-4 py-3 border-t border-border flex items-center justify-end space-x-2">
+              <Button variant="outline" size="sm" onClick={resetPromptEditor}>Reset</Button>
+              <Button variant="default" size="sm" onClick={savePromptEditor}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="bg-slate-900 px-4 py-2 border-b border-border">
           <div className="flex items-center justify-between">

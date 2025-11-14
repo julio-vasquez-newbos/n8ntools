@@ -88,12 +88,24 @@ const DelphiCodeAnalysisWorkspace = () => {
 
   // Mock AI refactor function
   const performAIRefactor = useCallback(async (instructions) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const refactoredCode = `// AI Refactored Code based on: "${instructions}"\n${jsCode}\n\n// Additional improvements added by AI`;
-        resolve(refactoredCode);
-      }, 3000);
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    const model = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
+    if (!apiKey) throw new Error('OpenAI API key not configured');
+    const defaultTpl = 'You are a code refactoring assistant. Return only executable JavaScript without markdown.\n\nInstructions:\n{{instructions}}\n\nCurrent code:\n{{code}}\n\nConstraints:\n- Output a single JavaScript snippet compatible with this app.';
+    const tpl = localStorage.getItem('aiRefactorPromptTemplate') || defaultTpl;
+    const system = 'You are a code refactoring assistant. Return only executable JavaScript without markdown.';
+    let user = tpl;
+    user = user.replace('{{instructions}}', instructions || '').replace('{{code}}', jsCode || '');
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content: user }], temperature: 0.2 })
     });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data?.error?.message || 'OpenAI request failed');
+    let content = data?.choices?.[0]?.message?.content || '';
+    content = content.replace(/^```[a-zA-Z]*\n/, '').replace(/```\s*$/, '');
+    return content;
   }, [jsCode]);
 
   // Event handlers
