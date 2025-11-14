@@ -13,6 +13,7 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
   const [selectedSnippetId, setSelectedSnippetId] = useState('');
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   const defaultCode = getProcedureFunctionCode;
 
@@ -156,36 +157,17 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
           >
             Edit AI Prompt
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="Library"
+            onClick={() => setIsLibraryOpen(true)}
+            disabled={isProcessing}
+            className="text-xs"
+          >
+            JavaScript Library
+          </Button>
         </div>
-      </div>
-      <div className="bg-card border border-border rounded-lg p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Icon name="Library" size={16} className="text-text-secondary" />
-            <span className="text-sm font-medium text-text-primary">JavaScript Library</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="xs" onClick={() => applySnippet('insert')} disabled={isProcessing || !selectedSnippetId}>Insert</Button>
-            <Button variant="outline" size="xs" onClick={() => applySnippet('replace')} disabled={isProcessing || !selectedSnippetId}>Replace</Button>
-            <Button variant="outline" size="xs" onClick={() => applySnippet('append')} disabled={isProcessing || !selectedSnippetId}>Append</Button>
-          </div>
-        </div>
-        <div className="mt-3">
-          <Select
-            options={snippetsCatalog.map(s => ({ label: s.title, value: s.id, description: s.description }))}
-            value={selectedSnippetId}
-            onChange={setSelectedSnippetId}
-            placeholder="Choose a snippet"
-            searchable
-            clearable
-          />
-        </div>
-        {getSelectedSnippet() && (
-          <div className="mt-3">
-            <div className="text-xs text-text-secondary mb-2">Lines: {getSelectedSnippet().code.split('\n').length}</div>
-            <pre className="bg-slate-900 text-slate-100 p-3 rounded text-xs font-mono overflow-x-auto max-h-40">{getSelectedSnippet().code}</pre>
-          </div>
-        )}
       </div>
 
       {isPromptOpen && (
@@ -210,6 +192,40 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
             <div className="px-4 py-3 border-t border-border flex items-center justify-end space-x-2">
               <Button variant="outline" size="sm" onClick={resetPromptEditor}>Reset</Button>
               <Button variant="default" size="sm" onClick={savePromptEditor}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isLibraryOpen && (
+        <div className="fixed inset-0 z-70 bg-black/30 flex items-center justify-center">
+          <div className="bg-popover border border-border rounded-lg w-[720px] max-w-[95vw]">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Icon name="Library" size={16} />
+                <span className="text-sm font-medium text-text-primary">JavaScript Library</span>
+              </div>
+              <Button variant="ghost" size="sm" iconName="X" onClick={() => setIsLibraryOpen(false)} />
+            </div>
+            <div className="p-4 space-y-3">
+              <Select
+                options={snippetsCatalog.map(s => ({ label: s.title, value: s.id, description: s.description }))}
+                value={selectedSnippetId}
+                onChange={setSelectedSnippetId}
+                placeholder="Choose a snippet"
+                searchable
+                clearable
+              />
+              {getSelectedSnippet() && (
+                <div>
+                  <div className="text-xs text-text-secondary mb-2">Lines: {getSelectedSnippet().code.split('\n').length}</div>
+                  <pre className="bg-slate-900 text-slate-100 p-3 rounded text-xs font-mono overflow-x-auto max-h-56">{getSelectedSnippet().code}</pre>
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-border flex items-center justify-end space-x-2">
+              <Button variant="outline" size="xs" onClick={() => applySnippet('insert')} disabled={isProcessing || !selectedSnippetId}>Insert</Button>
+              <Button variant="outline" size="xs" onClick={() => applySnippet('replace')} disabled={isProcessing || !selectedSnippetId}>Replace</Button>
+              <Button variant="outline" size="xs" onClick={() => applySnippet('append')} disabled={isProcessing || !selectedSnippetId}>Append</Button>
             </div>
           </div>
         </div>
@@ -244,13 +260,7 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-text-secondary space-y-1">
-          <p>• Script returns a function(fileContent, diffItems, metadata)</p>
-          <p>• That function must return an array of results</p>
-          <p>• Supports Delphi procedure/function detection</p>
-        </div>
-        
+      <div className="flex items-center justify-end">
         <Button
           variant="default"
           iconName="Play"
