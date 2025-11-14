@@ -167,6 +167,17 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
           >
             JavaScript Library
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="Wand2"
+            onClick={() => { try { window.dispatchEvent(new Event('open-refactor-modal')); } catch {} }}
+            disabled={isProcessing}
+            className="text-xs"
+            aria-label="Open AI Code Refactor"
+          >
+            Refactor
+          </Button>
         </div>
       </div>
 

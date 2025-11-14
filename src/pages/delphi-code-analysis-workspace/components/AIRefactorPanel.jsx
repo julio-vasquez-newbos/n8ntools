@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import { loadChatPromptTemplate, saveChatPromptTemplate, chatDefaultPrompt } from '../ai/chatPrompt';
@@ -8,7 +8,10 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
   const [refactorHistory, setRefactorHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatOpen, setChatOpen] = useState(true);
-  const [refactorOpen, setRefactorOpen] = useState(true);
+  const [isRefactorModalOpen, setIsRefactorModalOpen] = useState(false);
+  const [returnFocusEl, setReturnFocusEl] = useState(null);
+  const refactorButtonRef = useRef(null);
+  const instructionsRef = useRef(null);
   const [isChatPromptOpen, setIsChatPromptOpen] = useState(false);
   const [chatPromptText, setChatPromptText] = useState('');
 
@@ -49,6 +52,28 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
   const useHistoryItem = (item) => {
     setInstructions(item?.instructions);
   };
+
+  useEffect(() => {
+    if (isRefactorModalOpen && instructionsRef.current) {
+      instructionsRef.current.focus();
+    }
+    if (!isRefactorModalOpen) {
+      if (returnFocusEl && typeof returnFocusEl.focus === 'function') {
+        try { returnFocusEl.focus(); } catch {}
+      } else if (refactorButtonRef.current) {
+        refactorButtonRef.current.focus();
+      }
+    }
+  }, [isRefactorModalOpen, returnFocusEl]);
+
+  useEffect(() => {
+    const openHandler = () => {
+      setReturnFocusEl(document.activeElement);
+      setIsRefactorModalOpen(true);
+    };
+    window.addEventListener('open-refactor-modal', openHandler);
+    return () => window.removeEventListener('open-refactor-modal', openHandler);
+  }, []);
 
   const escapeHtml = (s) => s?.replace(/&/g, '&amp;')?.replace(/</g, '&lt;')?.replace(/>/g, '&gt;') ?? '';
   const jsHighlight = (code) => {
@@ -260,37 +285,8 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-2">
-        <div className="flex items-center space-x-2">
-          <Icon name="Sparkles" size={20} className="text-accent" />
-          <h3 className="text-lg font-semibold text-text-primary">AI Code Refactor</h3>
-        </div>
-        <Button variant="outline" size="xs" iconName={refactorOpen ? 'ChevronUp' : 'ChevronDown'} onClick={() => setRefactorOpen(!refactorOpen)}>{refactorOpen ? 'Hide' : 'Show'}</Button>
-      </div>
-      <div className={`${refactorOpen ? 'opacity-100 max-h-[640px]' : 'opacity-0 max-h-0'} transition-all duration-200 overflow-hidden space-y-3`}>
-        <div className="relative">
-          <textarea
-            value={instructions}
-            onChange={(e) => setInstructions(e?.target?.value)}
-            placeholder="Describe how you want to modify the JavaScript code..."
-            className="w-full h-24 p-3 border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
-            disabled={isRefactoring}
-          />
-          <div className="absolute bottom-2 right-2 text-xs text-text-secondary">
-            {instructions?.length}/500
-          </div>
-        </div>
-        <Button
-          variant="default"
-          iconName="Wand2"
-          iconPosition="left"
-          onClick={handleRefactor}
-          disabled={!instructions?.trim() || isRefactoring}
-          loading={isRefactoring}
-          fullWidth
-        >
-          Generate Refactored Code
-        </Button>
+      <div className="hidden">
+        <Button ref={refactorButtonRef} aria-hidden="true" />
       </div>
 
       {isChatPromptOpen && (
@@ -321,6 +317,123 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
           </div>
         </div>
       )}
+      {isRefactorModalOpen && (
+        <div
+          className="fixed inset-0 z-70 bg-black/30 flex items-center justify-center"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setIsRefactorModalOpen(false);
+          }}
+        >
+          <div
+            id="refactorModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="refactorModalTitle"
+            className="bg-popover border border-border rounded-lg w-[800px] max-w-[95vw] shadow-lg transition-transform duration-200 scale-100"
+          >
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Icon name="Sparkles" size={16} />
+                <span id="refactorModalTitle" className="text-sm font-medium text-text-primary">AI Code Refactor</span>
+              </div>
+              <Button variant="ghost" size="sm" iconName="X" aria-label="Close" onClick={() => setIsRefactorModalOpen(false)} />
+            </div>
+            <div className="p-4 space-y-4">
+              <section aria-labelledby="refactorChatHeading" className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 id="refactorChatHeading" className="text-sm font-medium text-text-primary">AI Chat</h4>
+                  <Button variant="outline" size="xs" iconName="Settings" onClick={openChatPromptEditor}>Edit Chat Prompt</Button>
+                </div>
+                <div className="border border-border rounded p-2 max-h-40 overflow-y-auto bg-popover">
+                  {chatMessages?.length === 0 ? null : (
+                    chatMessages?.map((m, i) => (
+                      <div key={i} className="space-y-1">
+                        <div className="text-[11px] font-medium text-text-secondary">{m.role === 'user' ? 'You' : 'AI'}</div>
+                        <MessageRenderer text={m.content} role={m.role} />
+                        <div className="border-t border-border opacity-50" />
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex items-start space-x-2">
+                  <textarea
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e?.target?.value)}
+                    placeholder="Ask about the current snippet..."
+                    className="flex-1 h-24 px-3 py-2 border border-border rounded text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    disabled={isChatting}
+                    rows={3}
+                  />
+                  <Button variant="default" size="sm" iconName="MessageSquare" onClick={handleChatSend} disabled={isChatting || !chatInput?.trim()} loading={isChatting}>Send</Button>
+                </div>
+              </section>
+
+              <div className="border-t border-border" />
+
+              <section aria-labelledby="refactorInputHeading" className="space-y-3">
+                <h4 id="refactorInputHeading" className="text-sm font-medium text-text-primary">AI Refactor</h4>
+                <div className="relative">
+                  <textarea
+                    ref={instructionsRef}
+                    value={instructions}
+                    onChange={(e) => setInstructions(e?.target?.value)}
+                    placeholder="Describe how you want to modify the JavaScript code..."
+                    className="w-full h-32 p-3 border border-border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                    disabled={isRefactoring}
+                    aria-label="Refactor instructions"
+                  />
+                  <div className="absolute bottom-2 right-2 text-xs text-text-secondary">
+                    {instructions?.length}/500
+                  </div>
+                </div>
+                <div className="flex items-center justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    iconName="X"
+                    onClick={() => setIsRefactorModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="default"
+                    iconName="Wand2"
+                    iconPosition="left"
+                    onClick={handleRefactor}
+                    disabled={!instructions?.trim() || isRefactoring}
+                    loading={isRefactoring}
+                  >
+                    Generate Refactored Code
+                  </Button>
+                </div>
+              </section>
+
+              <div className="border-t border-border" />
+
+              <section aria-labelledby="refactorExamplesHeading" className="space-y-2">
+                <h4 id="refactorExamplesHeading" className="text-sm font-medium text-text-primary">Examples</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    'Add error handling',
+                    'Optimize performance',
+                    'Add documentation'
+                  ].map((ex, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="text-xs px-3 py-2 border border-border rounded hover:bg-muted/40 text-text-secondary"
+                      onClick={() => setInstructions(ex)}
+                      aria-label={`Use example: ${ex}`}
+                    >
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
       {refactorHistory?.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-text-primary">Recent Requests</h4>
@@ -346,16 +459,6 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
           </div>
         </div>
       )}
-      <div className="bg-accent/10 border border-accent/20 rounded-lg p-3">
-        <div className="flex items-start space-x-2">
-          <Icon name="Info" size={16} className="text-accent mt-0.5" />
-          <div className="text-xs text-accent space-y-1">
-            <p><strong>AI Chat:</strong> Discuss the code, ask questions, and clarify goals.</p>
-            <p><strong>AI Refactor:</strong> Then describe modifications in natural language.</p>
-            <p>Examples: "Add error handling", "Optimize performance", "Add documentation"</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
