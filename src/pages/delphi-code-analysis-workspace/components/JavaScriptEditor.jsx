@@ -1,78 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import Select from '../../../components/ui/Select';
+import { snippetsCatalog } from '../snippets';
+import getProcedureFunctionCode from '../snippets/GetProcedureFunctionCode.js?raw';
 
 const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executionStatus }) => {
   const [editorCode, setEditorCode] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const textareaRef = useRef(null);
+  const [selectedSnippetId, setSelectedSnippetId] = useState('');
 
-  const defaultCode = `// Delphi Code Analysis Script
-// This script processes uploaded .pas files and extracts procedure/function information
-
-function analyzeDelphiCode(fileContent, diffItems, metadata) {
-  const lines = fileContent.split('\\n');
-  const results = [];
-  
-  // Regex patterns for Delphi procedures and functions
-  const procedureRegex = /^\\s*(procedure|function|constructor|destructor)\\s+([\\w\\.]+)/i;
-  const classMethodRegex = /^\\s*(class\\s+)?(procedure|function|constructor|destructor)\\s+([\\w\\.]+)/i;
-  
-  diffItems.forEach(item => {
-    const lineNumber = parseInt(item.newLineNumber);
-    const affectedRows = parseInt(item.affectedRows) || 5;
-    
-    if (lineNumber > 0 && lineNumber <= lines.length) {
-      // Extract code around the specified line
-      const startLine = Math.max(0, lineNumber - Math.floor(affectedRows / 2) - 1);
-      const endLine = Math.min(lines.length, lineNumber + Math.floor(affectedRows / 2));
-      
-      const codeSlice = lines.slice(startLine, endLine);
-      const procedureInfo = findProcedureInSlice(codeSlice, startLine + 1);
-      
-      if (procedureInfo) {
-        results.push({
-          procedure: procedureInfo.name,
-          lineNumber: lineNumber,
-          affectedRows: affectedRows,
-          revision: metadata.revision || 'N/A',
-          path: metadata.path || 'N/A',
-          code: codeSlice.join('\\n'),
-          actualStartLine: startLine + 1,
-          actualEndLine: endLine
-        });
-      }
-    }
-  });
-  
-  return results;
-}
-
-function findProcedureInSlice(codeLines, startLineNumber) {
-  for (let i = 0; i < codeLines.length; i++) {
-    const line = codeLines[i].trim();
-    const match = line.match(/^\\s*(class\\s+)?(procedure|function|constructor|destructor)\\s+([\\w\\.]+)/i);
-    
-    if (match) {
-      return {
-        name: match[3],
-        type: match[2],
-        isClass: !!match[1],
-        lineNumber: startLineNumber + i
-      };
-    }
-  }
-  
-  // If no procedure found, return a generic entry
-  return {
-    name: 'Code Block',
-    type: 'block',
-    isClass: false,
-    lineNumber: startLineNumber
-  };
-}
-
-// Export the main function
-return analyzeDelphiCode;`;
+  const defaultCode = getProcedureFunctionCode;
 
   useEffect(() => {
     if (code) {
@@ -86,6 +25,34 @@ return analyzeDelphiCode;`;
     const newCode = e?.target?.value;
     setEditorCode(newCode);
     onCodeChange(newCode);
+  };
+
+  const getSelectedSnippet = () => snippetsCatalog.find(s => s.id === selectedSnippetId);
+
+  const applySnippet = (mode) => {
+    const snippet = getSelectedSnippet();
+    if (!snippet || !snippet.code) return;
+    if (mode === 'replace') {
+      setEditorCode(snippet.code);
+      onCodeChange(snippet.code);
+      return;
+    }
+    if (mode === 'append') {
+      const next = editorCode ? editorCode + '\n\n' + snippet.code : snippet.code;
+      setEditorCode(next);
+      onCodeChange(next);
+      return;
+    }
+    if (mode === 'insert') {
+      const el = textareaRef.current;
+      if (!el) return;
+      const start = el.selectionStart ?? editorCode.length;
+      const end = el.selectionEnd ?? editorCode.length;
+      const next = editorCode.slice(0, start) + snippet.code + editorCode.slice(end);
+      setEditorCode(next);
+      onCodeChange(next);
+      return;
+    }
   };
 
   const handleExecute = () => {
@@ -163,6 +130,35 @@ return analyzeDelphiCode;`;
           </Button>
         </div>
       </div>
+      <div className="bg-card border border-border rounded-lg p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Icon name="Library" size={16} className="text-text-secondary" />
+            <span className="text-sm font-medium text-text-primary">JavaScript Library</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="xs" onClick={() => applySnippet('insert')} disabled={isProcessing || !selectedSnippetId}>Insert</Button>
+            <Button variant="outline" size="xs" onClick={() => applySnippet('replace')} disabled={isProcessing || !selectedSnippetId}>Replace</Button>
+            <Button variant="outline" size="xs" onClick={() => applySnippet('append')} disabled={isProcessing || !selectedSnippetId}>Append</Button>
+          </div>
+        </div>
+        <div className="mt-3">
+          <Select
+            options={snippetsCatalog.map(s => ({ label: s.title, value: s.id, description: s.description }))}
+            value={selectedSnippetId}
+            onChange={setSelectedSnippetId}
+            placeholder="Choose a snippet"
+            searchable
+            clearable
+          />
+        </div>
+        {getSelectedSnippet() && (
+          <div className="mt-3">
+            <div className="text-xs text-text-secondary mb-2">Lines: {getSelectedSnippet().code.split('\n').length}</div>
+            <pre className="bg-slate-900 text-slate-100 p-3 rounded text-xs font-mono overflow-x-auto max-h-40">{getSelectedSnippet().code}</pre>
+          </div>
+        )}
+      </div>
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="bg-slate-900 px-4 py-2 border-b border-border">
           <div className="flex items-center justify-between">
@@ -182,6 +178,7 @@ return analyzeDelphiCode;`;
             onChange={handleCodeChange}
             onKeyDown={handleKeyDown}
             disabled={isProcessing}
+            ref={textareaRef}
             className="w-full h-96 p-4 bg-slate-900 text-slate-100 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
             placeholder="Enter your JavaScript code here..."
             spellCheck={false}
