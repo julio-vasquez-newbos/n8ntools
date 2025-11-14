@@ -18,6 +18,7 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
       setEditorCode(code);
     } else {
       setEditorCode(defaultCode);
+      onCodeChange(defaultCode);
     }
   }, [code, defaultCode]);
 

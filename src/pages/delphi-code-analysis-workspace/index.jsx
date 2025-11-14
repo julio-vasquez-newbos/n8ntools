@@ -28,21 +28,63 @@ const DelphiCodeAnalysisWorkspace = () => {
   const [isJSONVisible, setIsJSONVisible] = useState(false);
 
   const executeJavaScript = useCallback(async (code, fileContent, diffItems, metadata) => {
+    function b64ToUtf8(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+    function utf8ToB64(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+    function createDollar(fc, fn, di, md) {
+      return q => {
+        if (q === 'Read .PAS Files from Disk') {
+          return { first: () => ({ binary: { data: { data: utf8ToB64(fc || '') } }, json: { fileName: fn || 'uploaded.pas' } }) };
+        }
+        if (q === 'Return Array of Line Numbers+Rows per Diff File') {
+          return { first: () => ({ json: { newLineNumbersOnly: di || [] } }) };
+        }
+        if (q === 'Read Diff File') {
+          return { first: () => ({ json: { revision: md?.revision, path: md?.path } }) };
+        }
+        return { first: () => ({}) };
+      };
+    }
+    const dollar = createDollar(fileContent, uploadedFile?.name, diffItems, metadata);
+    const BufferPoly = { from: (b64, enc) => ({ toString: e => b64ToUtf8(b64) }) };
     try {
-      const factory = new Function('"use strict"; return (function(){' + code + '\n})();');
-      const analyzeFn = factory();
-      if (typeof analyzeFn !== 'function') {
-        throw new Error('Script must return a function');
+      const factory = new Function('fileContent', 'diffItems', 'metadata', '$', 'Buffer', '"use strict"; return (function(){' + code + '\n})();');
+      const out = factory(fileContent, diffItems, metadata, dollar, BufferPoly);
+      let results;
+      if (typeof out === 'function') {
+        results = await Promise.resolve(out(fileContent, diffItems, metadata));
+      } else {
+        results = out;
       }
-      const results = await Promise.resolve(analyzeFn(fileContent, diffItems, metadata));
       if (!Array.isArray(results)) {
         throw new Error('Script must return an array of results');
+      }
+      if (results?.[0]?.json) {
+        results = results.map(r => ({
+          procedure: r.json?.procedure,
+          lineNumber: r.json?.lineNumber,
+          affectedRows: r.json?.affectedRows,
+          revision: r.json?.revision,
+          path: r.json?.path,
+          code: r.json?.procedureCode,
+          actualStartLine: r.json?.lineNumber || 0,
+          actualEndLine: (r.json?.lineNumber || 0) + (r.json?.affectedRows || 0)
+        }));
       }
       return results;
     } catch (err) {
       throw new Error(`JavaScript execution failed: ${err.message}`);
     }
-  }, []);
+  }, [uploadedFile]);
 
   // Mock AI refactor function
   const performAIRefactor = useCallback(async (instructions) => {
