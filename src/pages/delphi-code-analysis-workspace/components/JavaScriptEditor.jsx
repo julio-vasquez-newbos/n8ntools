@@ -194,8 +194,8 @@ return analyzeDelphiCode;`;
       </div>
       <div className="flex items-center justify-between">
         <div className="text-xs text-text-secondary space-y-1">
-          <p>• Script receives: fileContent, diffItems, metadata</p>
-          <p>• Must return array of analysis results</p>
+          <p>• Script returns a function(fileContent, diffItems, metadata)</p>
+          <p>• That function must return an array of results</p>
           <p>• Supports Delphi procedure/function detection</p>
         </div>
         

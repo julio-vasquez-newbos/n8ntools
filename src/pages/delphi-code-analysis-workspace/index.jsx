@@ -27,31 +27,21 @@ const DelphiCodeAnalysisWorkspace = () => {
   const [isCodeViewerOpen, setIsCodeViewerOpen] = useState(false);
   const [isJSONVisible, setIsJSONVisible] = useState(false);
 
-  // Mock JavaScript execution function
   const executeJavaScript = useCallback(async (code, fileContent, diffItems, metadata) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        try {
-          // Simulate JavaScript execution
-          const mockResults = diffItems
-            .filter(item => item.newLineNumber && item.affectedRows)
-            .map((item, index) => ({
-              procedure: `DelphiProcedure${index + 1}`,
-              lineNumber: parseInt(item.newLineNumber),
-              affectedRows: parseInt(item.affectedRows),
-              revision: metadata.revision || 'v1.0.0',
-              path: metadata.path || '/src/main',
-              code: `procedure DelphiProcedure${index + 1};\nbegin\n  // Sample Delphi code\n  WriteLn('Hello from line ${item.newLineNumber}');\nend;`,
-              actualStartLine: Math.max(1, parseInt(item.newLineNumber) - 2),
-              actualEndLine: parseInt(item.newLineNumber) + parseInt(item.affectedRows)
-            }));
-
-          resolve(mockResults);
-        } catch (err) {
-          reject(new Error(`JavaScript execution failed: ${err.message}`));
-        }
-      }, 2000);
-    });
+    try {
+      const factory = new Function('"use strict"; return (function(){' + code + '\n})();');
+      const analyzeFn = factory();
+      if (typeof analyzeFn !== 'function') {
+        throw new Error('Script must return a function');
+      }
+      const results = await Promise.resolve(analyzeFn(fileContent, diffItems, metadata));
+      if (!Array.isArray(results)) {
+        throw new Error('Script must return an array of results');
+      }
+      return results;
+    } catch (err) {
+      throw new Error(`JavaScript execution failed: ${err.message}`);
+    }
   }, []);
 
   // Mock AI refactor function
@@ -159,8 +149,8 @@ const DelphiCodeAnalysisWorkspace = () => {
         onExport={() => console.log('Export results')}
         onHelp={() => console.log('Show help')}
       />
-      <div className="pt-15">
-        <div className="flex h-[calc(100vh-60px)]">
+      <div className="pt-18">
+        <div className="flex h-[calc(100vh-72px)]">
           {/* Input Panel - 25% */}
           <div className="w-1/4 border-r border-border bg-surface overflow-y-auto">
             <div className="p-6 space-y-6">
