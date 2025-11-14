@@ -4,6 +4,7 @@ import Button from '../../../components/ui/Button';
 import Select from '../../../components/ui/Select';
 import { snippetsCatalog } from '../snippets';
 import getProcedureFunctionCode from '../snippets/GetProcedureFunctionCode.js?raw';
+import { defaultPrompt, loadPromptTemplate, savePromptTemplate } from '../ai/prompt';
 
 const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executionStatus }) => {
   const [editorCode, setEditorCode] = useState('');
@@ -12,7 +13,6 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
   const [selectedSnippetId, setSelectedSnippetId] = useState('');
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [promptText, setPromptText] = useState('');
-  const defaultPrompt = 'You are a code refactoring assistant. Transform the following JavaScript according to the instructions. Output only executable JavaScript.\n\nInstructions:\n{{instructions}}\n\nCurrent code:\n{{code}}\n\nConstraints:\n- Return a function(fileContent, diffItems, metadata) or a pipeline-style array.';
 
   const defaultCode = getProcedureFunctionCode;
 
@@ -26,13 +26,12 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
   }, [code, defaultCode]);
 
   const openPromptEditor = () => {
-    const stored = localStorage.getItem('aiRefactorPromptTemplate');
-    setPromptText(stored || defaultPrompt);
+    setPromptText(loadPromptTemplate());
     setIsPromptOpen(true);
   };
 
   const savePromptEditor = () => {
-    localStorage.setItem('aiRefactorPromptTemplate', promptText || defaultPrompt);
+    savePromptTemplate(promptText || defaultPrompt);
     setIsPromptOpen(false);
   };
 

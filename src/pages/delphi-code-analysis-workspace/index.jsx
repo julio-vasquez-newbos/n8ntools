@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { loadPromptTemplate, defaultPrompt } from './ai/prompt';
 import ApplicationHeader from '../../components/ui/ApplicationHeader';
 import FileUploadPanel from './components/FileUploadPanel';
 import DiffLineItemsTable from './components/DiffLineItemsTable';
@@ -91,8 +92,7 @@ const DelphiCodeAnalysisWorkspace = () => {
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     const model = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
     if (!apiKey) throw new Error('OpenAI API key not configured');
-    const defaultTpl = 'You are a code refactoring assistant. Return only executable JavaScript without markdown.\n\nInstructions:\n{{instructions}}\n\nCurrent code:\n{{code}}\n\nConstraints:\n- Output a single JavaScript snippet compatible with this app.';
-    const tpl = localStorage.getItem('aiRefactorPromptTemplate') || defaultTpl;
+    const tpl = loadPromptTemplate();
     const system = 'You are a code refactoring assistant. Return only executable JavaScript without markdown.';
     let user = tpl;
     user = user.replace('{{instructions}}', instructions || '').replace('{{code}}', jsCode || '');
