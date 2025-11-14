@@ -7,7 +7,8 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
   const [instructions, setInstructions] = useState('');
   const [refactorHistory, setRefactorHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [refactorOpen, setRefactorOpen] = useState(true);
   const [isChatPromptOpen, setIsChatPromptOpen] = useState(false);
   const [chatPromptText, setChatPromptText] = useState('');
 
@@ -51,11 +52,46 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2">
-        <Icon name="Sparkles" size={20} className="text-accent" />
-        <h3 className="text-lg font-semibold text-text-primary">AI Code Refactor</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Icon name="MessageSquare" size={20} className="text-accent" />
+          <h3 className="text-lg font-semibold text-text-primary">AI Chat</h3>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="xs" iconName="Settings" onClick={openChatPromptEditor}>Edit Chat Prompt</Button>
+          <Button variant="outline" size="xs" iconName={chatOpen ? 'ChevronUp' : 'ChevronDown'} onClick={() => setChatOpen(!chatOpen)}>{chatOpen ? 'Hide' : 'Show'}</Button>
+        </div>
       </div>
-      <div className="space-y-3">
+      <div className={`${chatOpen ? 'opacity-100 max-h-[480px]' : 'opacity-0 max-h-0'} transition-all duration-200 overflow-hidden space-y-2`}>
+        <div className="border border-border rounded p-2 max-h-40 overflow-y-auto bg-popover">
+          {chatMessages?.length === 0 ? null : (
+            chatMessages?.map((m, i) => (
+              <div key={i} className={`text-xs ${m.role === 'user' ? 'text-text-primary' : 'text-text-secondary'}`}>
+                <span className="font-medium">{m.role === 'user' ? 'You' : 'AI'}:</span> {m.content}
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          <input
+            value={chatInput}
+            onChange={(e) => setChatInput(e?.target?.value)}
+            placeholder="Ask about the current snippet..."
+            className="flex-1 h-9 px-3 border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            disabled={isChatting}
+          />
+          <Button variant="default" size="sm" iconName="MessageSquare" onClick={handleChatSend} disabled={isChatting || !chatInput?.trim()} loading={isChatting}>Send</Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center space-x-2">
+          <Icon name="Sparkles" size={20} className="text-accent" />
+          <h3 className="text-lg font-semibold text-text-primary">AI Code Refactor</h3>
+        </div>
+        <Button variant="outline" size="xs" iconName={refactorOpen ? 'ChevronUp' : 'ChevronDown'} onClick={() => setRefactorOpen(!refactorOpen)}>{refactorOpen ? 'Hide' : 'Show'}</Button>
+      </div>
+      <div className={`${refactorOpen ? 'opacity-100 max-h-[640px]' : 'opacity-0 max-h-0'} transition-all duration-200 overflow-hidden space-y-3`}>
         <div className="relative">
           <textarea
             value={instructions}
@@ -68,7 +104,6 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
             {instructions?.length}/500
           </div>
         </div>
-
         <Button
           variant="default"
           iconName="Wand2"
@@ -80,38 +115,6 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
         >
           Generate Refactored Code
         </Button>
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-medium text-text-primary">AI Chat</h4>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="xs" iconName="Settings" onClick={openChatPromptEditor}>Edit Chat Prompt</Button>
-            <Button variant="outline" size="xs" iconName={chatOpen ? 'ChevronUp' : 'ChevronDown'} onClick={() => setChatOpen(!chatOpen)}>Chat</Button>
-          </div>
-        </div>
-        {chatOpen && (
-          <div className="space-y-2">
-            <div className="border border-border rounded p-2 max-h-40 overflow-y-auto bg-popover">
-              {chatMessages?.length === 0 ? (
-                <div className="text-xs text-text-secondary">Start a conversation to discuss the snippet before refactor.</div>
-              ) : (
-                chatMessages?.map((m, i) => (
-                  <div key={i} className={`text-xs ${m.role === 'user' ? 'text-text-primary' : 'text-text-secondary'}`}>
-                    <span className="font-medium">{m.role === 'user' ? 'You' : 'AI'}:</span> {m.content}
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e?.target?.value)}
-                placeholder="Ask about the current snippet..."
-                className="flex-1 h-9 px-3 border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                disabled={isChatting}
-              />
-              <Button variant="default" size="sm" iconName="MessageSquare" onClick={handleChatSend} disabled={isChatting || !chatInput?.trim()} loading={isChatting}>Send</Button>
-            </div>
-          </div>
-        )}
       </div>
 
       {isChatPromptOpen && (
@@ -171,7 +174,8 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
         <div className="flex items-start space-x-2">
           <Icon name="Info" size={16} className="text-accent mt-0.5" />
           <div className="text-xs text-accent space-y-1">
-            <p><strong>AI Refactor:</strong> Describe modifications in natural language</p>
+            <p><strong>AI Chat:</strong> Discuss the code, ask questions, and clarify goals.</p>
+            <p><strong>AI Refactor:</strong> Then describe modifications in natural language.</p>
             <p>Examples: "Add error handling", "Optimize performance", "Add documentation"</p>
           </div>
         </div>
