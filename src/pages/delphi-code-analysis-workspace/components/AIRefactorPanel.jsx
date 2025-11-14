@@ -49,14 +49,6 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
     setInstructions(item?.instructions);
   };
 
-  const commonInstructions = [
-    "Add error handling and validation",
-    "Optimize regex patterns for better performance",
-    "Add support for nested class methods",
-    "Include line number validation",
-    "Add comments and documentation"
-  ];
-
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
@@ -147,23 +139,6 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
               <Button variant="outline" size="sm" onClick={resetChatPromptEditor}>Reset</Button>
               <Button variant="default" size="sm" onClick={saveChatPromptEditor}>Save</Button>
             </div>
-          </div>
-        </div>
-      )}
-      {commonInstructions?.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-text-primary">Quick Instructions</h4>
-          <div className="space-y-1">
-            {commonInstructions?.map((instruction, index) => (
-              <button
-                key={index}
-                onClick={() => setInstructions(instruction)}
-                className="w-full text-left px-3 py-2 text-xs bg-muted hover:bg-muted/80 rounded border border-border transition-colors"
-                disabled={isRefactoring}
-              >
-                {instruction}
-              </button>
-            ))}
           </div>
         </div>
       )}
