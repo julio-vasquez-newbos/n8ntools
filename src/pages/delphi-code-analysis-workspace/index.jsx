@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { loadPromptTemplate, defaultPrompt } from './ai/prompt';
+import { loadPromptTemplate } from './ai/prompt';
+import { chatSystemPrompt, loadChatPromptTemplate } from './ai/chatPrompt';
 import ApplicationHeader from '../../components/ui/ApplicationHeader';
 import FileUploadPanel from './components/FileUploadPanel';
 import DiffLineItemsTable from './components/DiffLineItemsTable';
@@ -27,6 +28,8 @@ const DelphiCodeAnalysisWorkspace = () => {
   const [selectedCodeData, setSelectedCodeData] = useState(null);
   const [isCodeViewerOpen, setIsCodeViewerOpen] = useState(false);
   const [isJSONVisible, setIsJSONVisible] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [isChatting, setIsChatting] = useState(false);
 
   const executeJavaScript = useCallback(async (code, fileContent, diffItems, metadata) => {
     function b64ToUtf8(b64) {
@@ -108,6 +111,31 @@ const DelphiCodeAnalysisWorkspace = () => {
     return content;
   }, [jsCode]);
 
+  const performAIChat = useCallback(async (userMessage, history, code, fileCtx, diffCtx, metaCtx) => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    const model = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
+    if (!apiKey) throw new Error('OpenAI API key not configured');
+    const messages = [{ role: 'system', content: chatSystemPrompt }];
+    const tpl = loadChatPromptTemplate();
+    const userContent = tpl
+      .replace('{{message}}', userMessage || '')
+      .replace('{{code}}', code || '')
+      .replace('{{fileName}}', fileCtx?.name || '')
+      .replace('{{fileContentExcerpt}}', fileCtx?.excerpt || '')
+      .replace('{{diffItemsList}}', diffCtx?.list || '')
+      .replace('{{metadataJson}}', metaCtx?.json || '');
+    history?.forEach(m => messages.push({ role: m.role, content: m.content }));
+    messages.push({ role: 'user', content: userContent });
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages, temperature: 0.2 })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data?.error?.message || 'OpenAI request failed');
+    return data?.choices?.[0]?.message?.content || '';
+  }, []);
+
   // Event handlers
   const handleFileUpload = useCallback((file) => {
     setUploadedFile(file);
@@ -170,6 +198,31 @@ const DelphiCodeAnalysisWorkspace = () => {
       setIsRefactoring(false);
     }
   }, [performAIRefactor]);
+
+  const handleAIChatMessage = useCallback(async (message) => {
+    setIsChatting(true);
+    try {
+      const nextHistory = [...chatMessages, { role: 'user', content: message }];
+      const fileExcerpt = (uploadedFile?.content || '').slice(0, 4000);
+      const diffList = (diffItems || [])
+        .map(d => `- line ${d?.newLineNumber}, rows ${d?.affectedRows}`)
+        .join('\n');
+      const reply = await performAIChat(
+        message,
+        chatMessages,
+        jsCode,
+        { name: uploadedFile?.name || '', excerpt: fileExcerpt },
+        { list: diffList },
+        { json: JSON.stringify(metadata || {}) }
+      );
+      const updated = [...nextHistory, { role: 'assistant', content: reply }];
+      setChatMessages(updated);
+    } catch (err) {
+      setError(new Error(`AI chat failed: ${err.message}`));
+    } finally {
+      setIsChatting(false);
+    }
+  }, [chatMessages, performAIChat, jsCode, uploadedFile, diffItems, metadata]);
 
   const handleViewCode = useCallback((codeData) => {
     setSelectedCodeData(codeData);
@@ -266,6 +319,9 @@ const DelphiCodeAnalysisWorkspace = () => {
                 onRefactor={handleAIRefactor}
                 isRefactoring={isRefactoring}
                 currentCode={jsCode}
+                onChatMessage={handleAIChatMessage}
+                isChatting={isChatting}
+                chatMessages={chatMessages}
               />
             </div>
           </div>
