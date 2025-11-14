@@ -14,6 +14,8 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
   const instructionsRef = useRef(null);
   const [isChatPromptOpen, setIsChatPromptOpen] = useState(false);
   const [chatPromptText, setChatPromptText] = useState('');
+  const messagesRef = useRef(null);
+  const modalMessagesRef = useRef(null);
 
   const handleRefactor = () => {
     if (!instructions?.trim()) return;
@@ -74,6 +76,16 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
     window.addEventListener('open-refactor-modal', openHandler);
     return () => window.removeEventListener('open-refactor-modal', openHandler);
   }, []);
+
+  useEffect(() => {
+    const scroll = (el) => {
+      if (!el) return;
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+      if (nearBottom) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    };
+    scroll(messagesRef.current);
+    scroll(modalMessagesRef.current);
+  }, [chatMessages, isChatting]);
 
   const escapeHtml = (s) => s?.replace(/&/g, '&amp;')?.replace(/</g, '&lt;')?.replace(/>/g, '&gt;') ?? '';
   const jsHighlight = (code) => {
@@ -260,14 +272,13 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
           <Button variant="outline" size="xs" iconName={chatOpen ? 'ChevronUp' : 'ChevronDown'} onClick={() => setChatOpen(!chatOpen)}>{chatOpen ? 'Hide' : 'Show'}</Button>
         </div>
       </div>
-      <div className={`${chatOpen ? 'opacity-100 max-h-[480px]' : 'opacity-0 max-h-0'} transition-all duration-200 overflow-hidden space-y-2`}>
-        <div className="border border-border rounded p-2 max-h-40 overflow-y-auto bg-popover">
+      <div className={`${chatOpen ? 'opacity-100 max-h-[75vh]' : 'opacity-0 max-h-0'} transition-all duration-200 overflow-hidden space-y-2`}>
+        <div ref={messagesRef} aria-live="polite" tabIndex={0} className="border border-border rounded p-3 h-64 sm:h-80 md:h-[50vh] overflow-y-auto bg-popover scroll-smooth space-y-3">
           {chatMessages?.length === 0 ? null : (
             chatMessages?.map((m, i) => (
               <div key={i} className="space-y-1">
                 <div className="text-[11px] font-medium text-text-secondary">{m.role === 'user' ? 'You' : 'AI'}</div>
                 <MessageRenderer text={m.content} role={m.role} />
-                <div className="border-t border-border opacity-50" />
               </div>
             ))
           )}
@@ -344,13 +355,12 @@ const AIRefactorPanel = ({ onRefactor, isRefactoring, currentCode, onChatMessage
                   <h4 id="refactorChatHeading" className="text-sm font-medium text-text-primary">AI Chat</h4>
                   <Button variant="outline" size="xs" iconName="Settings" onClick={openChatPromptEditor}>Edit Chat Prompt</Button>
                 </div>
-                <div className="border border-border rounded p-2 max-h-40 overflow-y-auto bg-popover">
+                <div ref={modalMessagesRef} aria-live="polite" tabIndex={0} className="border border-border rounded p-3 h-64 sm:h-80 md:h-[50vh] overflow-y-auto bg-popover scroll-smooth space-y-3">
                   {chatMessages?.length === 0 ? null : (
                     chatMessages?.map((m, i) => (
                       <div key={i} className="space-y-1">
                         <div className="text-[11px] font-medium text-text-secondary">{m.role === 'user' ? 'You' : 'AI'}</div>
                         <MessageRenderer text={m.content} role={m.role} />
-                        <div className="border-t border-border opacity-50" />
                       </div>
                     ))
                   )}

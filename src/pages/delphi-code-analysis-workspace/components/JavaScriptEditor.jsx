@@ -107,8 +107,34 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
     }
   };
 
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const removeTargetButton = () => {
+      const buttons = root.querySelectorAll('button');
+      let target = null;
+      for (const b of buttons) {
+        const text = (b.textContent || '').trim();
+        if (text === 'Execute Script') { target = b; break; }
+      }
+      if (!target) return;
+      try {
+        target.replaceChildren();
+        for (const k in target.dataset) { try { delete target.dataset[k]; } catch {} }
+        const parent = target.parentNode;
+        if (parent) parent.removeChild(target);
+      } catch {}
+    };
+    removeTargetButton();
+    const obs = new MutationObserver(() => removeTargetButton());
+    try { obs.observe(root, { childList: true, subtree: true }); } catch {}
+    return () => { try { obs.disconnect(); } catch {} };
+  }, []);
+
   return (
-    <div className={`space-y-4 ${isFullscreen ? 'fixed inset-0 z-50 bg-background p-6' : ''}`}>
+    <div ref={rootRef} className={`space-y-4 ${isFullscreen ? 'fixed inset-0 z-50 bg-background p-6' : ''}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <h3 className="text-lg font-semibold text-text-primary">JavaScript Editor</h3>
@@ -271,18 +297,7 @@ const JavaScriptEditor = ({ code, onCodeChange, onExecute, isProcessing, executi
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-end">
-        <Button
-          variant="default"
-          iconName="Play"
-          iconPosition="left"
-          onClick={handleExecute}
-          disabled={isProcessing || !editorCode?.trim()}
-          loading={isProcessing}
-        >
-          Execute Script
-        </Button>
-      </div>
+      <div className="flex items-center justify-end"></div>
     </div>
   );
 };
