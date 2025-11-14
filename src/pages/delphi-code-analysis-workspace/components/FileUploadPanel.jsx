@@ -1,15 +1,19 @@
 import React, { useState, useCallback } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import FileContentViewer from './FileContentViewer';
 
 const FileUploadPanel = ({ onFileUpload, uploadedFile, isProcessing }) => {
   const [dragActive, setDragActive] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [activeTab, setActiveTab] = useState('file'); // 'file' or 'paste'
+  const [postUploadTab, setPostUploadTab] = useState('summary'); // 'summary' or 'content'
   const [pasteContent, setPasteContent] = useState('');
 
   const validateFile = (file) => {
-    if (!file?.name?.toLowerCase()?.endsWith('.pas')) {
+    const name = file?.name?.toLowerCase() || '';
+    const supported = ['.pas'];
+    if (!supported.some(ext => name.endsWith(ext))) {
       return 'Only .pas files are allowed';
     }
     if (file?.size > 10 * 1024 * 1024) { // 10MB limit
@@ -46,8 +50,9 @@ const FileUploadPanel = ({ onFileUpload, uploadedFile, isProcessing }) => {
         lastModified: new Date(file.lastModified),
         source: 'file'
       });
+      setPostUploadTab('content');
     };
-    reader?.readAsText(file, 'UTF-8');
+    reader.readAsText(file, 'UTF-8');
   }, [onFileUpload]);
 
   const handlePasteProcess = useCallback(() => {
@@ -67,6 +72,7 @@ const FileUploadPanel = ({ onFileUpload, uploadedFile, isProcessing }) => {
       source: 'paste'
     });
     setPasteContent('');
+    setPostUploadTab('content');
   }, [pasteContent, onFileUpload]);
 
   const handleDrag = useCallback((e) => {
@@ -99,6 +105,7 @@ const FileUploadPanel = ({ onFileUpload, uploadedFile, isProcessing }) => {
     onFileUpload(null);
     setPasteContent('');
     setUploadError('');
+    setPostUploadTab('summary');
   };
 
   return (
@@ -173,12 +180,12 @@ const FileUploadPanel = ({ onFileUpload, uploadedFile, isProcessing }) => {
                     Drop your .pas file here
                   </p>
                   <p className="text-sm text-text-secondary mt-1">
-                    or click to browse files
+                    or click to browse .pas files
                   </p>
                 </div>
                 
                 <div className="text-xs text-text-secondary">
-                  Supports: .pas files up to 10MB • UTF-8 encoding
+                  Supports: .pas (UTF-8) • up to 10MB
                 </div>
               </div>
             </div>
@@ -238,34 +245,59 @@ const FileUploadPanel = ({ onFileUpload, uploadedFile, isProcessing }) => {
           )}
         </>
       ) : (
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Icon 
-                name={uploadedFile?.source === 'paste' ? 'Edit3' : 'FileText'} 
-                size={20} 
-                className="text-success" 
-              />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-medium text-text-primary truncate">
-                {uploadedFile?.name}
-              </h4>
-              <div className="text-xs text-text-secondary space-y-1 mt-1">
-                <p>Size: {(uploadedFile?.size / 1024)?.toFixed(1)} KB</p>
-                <p>Modified: {uploadedFile?.lastModified?.toLocaleDateString()}</p>
-                <p>Lines: {uploadedFile?.content?.split('\n')?.length?.toLocaleString()}</p>
-                <p>Source: {uploadedFile?.source === 'paste' ? 'Pasted Content' : 'Uploaded File'}</p>
+        <>
+          <div className="flex bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setPostUploadTab('summary')}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                postUploadTab === 'summary' ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Icon name="Info" size={16} className="inline mr-2" />
+              Summary
+            </button>
+            <button
+              onClick={() => setPostUploadTab('content')}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                postUploadTab === 'content' ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Icon name="FileText" size={16} className="inline mr-2" />
+              File Content
+            </button>
+          </div>
+          {postUploadTab === 'summary' && (
+            <div className="bg-card border border-border rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Icon 
+                    name={uploadedFile?.source === 'paste' ? 'Edit3' : 'FileText'} 
+                    size={20} 
+                    className="text-success" 
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-medium text-text-primary truncate">
+                    {uploadedFile?.name}
+                  </h4>
+                  <div className="text-xs text-text-secondary space-y-1 mt-1">
+                    <p>Size: {(uploadedFile?.size / 1024)?.toFixed(1)} KB</p>
+                    <p>Modified: {uploadedFile?.lastModified?.toLocaleDateString()}</p>
+                    <p>Lines: {String(uploadedFile?.content || '').split('\n')?.length?.toLocaleString()}</p>
+                    <p>Source: {uploadedFile?.source === 'paste' ? 'Pasted Content' : 'Uploaded File'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-success rounded-full"></div>
+                  <span className="text-xs text-success font-medium">Ready</span>
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-success rounded-full"></div>
-              <span className="text-xs text-success font-medium">Ready</span>
-            </div>
-          </div>
-        </div>
+          )}
+          {postUploadTab === 'content' && (
+            <FileContentViewer file={uploadedFile} />
+          )}
+        </>
       )}
       {uploadError && (
         <div className="bg-error/10 border border-error/20 rounded-lg p-3">
